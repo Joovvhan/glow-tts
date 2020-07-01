@@ -63,6 +63,25 @@ def text_to_sequence(text, cleaner_names, dictionary=None):
     sequence = sequence[:-1] if sequence[-1] == space[0] else sequence
   return sequence
 
+def text_to_sequence_k(text, cleaner_names, dictionary=None):
+  '''Converts a string of text to a sequence of IDs corresponding to the Korean symbols in the text.
+
+    Args:
+      text: string to convert to a sequence
+      cleaner_names: names of the cleaner functions to run the text through
+      dictionary: arpabet class with arpabet dictionary
+
+    Returns:
+      List of integers corresponding to the symbols in the text
+  '''
+  sequence = []
+  
+  clean_text = _clean_text(text, cleaner_names)
+
+  sequence = _symbols_to_sequence(clean_text)  
+
+  return sequence
+
 
 def sequence_to_text(sequence):
   '''Converts a sequence of IDs back to a string'''

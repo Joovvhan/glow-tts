@@ -16,6 +16,10 @@ import re
 from unidecode import unidecode
 from .numbers import normalize_numbers
 
+import jamotools
+
+from g2pk import G2p
+g2p = G2p()
 
 # Regular expression matching whitespace:
 _whitespace_re = re.compile(r'\s+')
@@ -87,4 +91,10 @@ def english_cleaners(text):
   text = expand_numbers(text)
   text = expand_abbreviations(text)
   text = collapse_whitespace(text)
+  return text
+
+def korean_cleaners(text):
+  '''Pipeline for Korean text. Split Korean into Jamo syllables.'''
+  text = g2p(text)
+  text = jamotools.split_syllables(text, jamo_type="JAMO") 
   return text
