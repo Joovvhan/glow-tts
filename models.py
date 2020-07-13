@@ -325,3 +325,32 @@ class FlowGenerator(nn.Module):
 
   def store_inverse(self):
     self.decoder.store_inverse()
+'''
+  def _forward(self, x, x_lengths, y=None, y_lengths=None, g=None, gen=False, noise_scales=[1]., length_scale=1.):
+
+    x_m, x_logs, logw, x_mask = self.encoder(x, x_lengths, g=g)
+
+    if gen:
+      w = torch.exp(logw) * x_mask * length_scale
+      w_ceil = torch.ceil(w)
+      y_lengths = torch.clamp_min(torch.sum(w_ceil, [1, 2]), 1).long()
+      y_max_length = None
+
+    y, y_lengths, y_max_length = self.preprocess(y, y_lengths, y_max_length)
+    y_mask = torch.unsqueeze(commons.sequence_mask(y_lengths, y_max_length), 1).to(x_mask.dtype)
+    attn_mask = torch.unsqueeze(x_mask, -1) * torch.unsqueeze(y_mask, 2)
+
+    if gen:
+      attn = commons.generate_path(w_ceil.squeeze(1), attn_mask.squeeze(1)).unsqueeze(1)
+      y_m = torch.matmul(attn.squeeze(1).transpose(1, 2), x_m.transpose(1, 2)).transpose(1, 2) # [b, t', t], [b, t, d] -> [b, d, t']
+      y_logs = torch.matmul(attn.squeeze(1).transpose(1, 2), x_logs.transpose(1, 2)).transpose(1, 2) # [b, t', t], [b, t, d] -> [b, d, t']
+      logw_ = torch.log(1e-8 + torch.sum(attn, -1)) * x_mask
+
+      return_ = list()
+
+      for noise_scale in noise_scales:
+        z = (y_m + torch.exp(y_logs) * torch.randn_like(y_m) * noise_scale) * y_mask
+        y, logdet = self.decoder(z, y_mask, g=g, reverse=True)
+        return_.append(((y, y_m, y_logs, logdet), attn, logw, logw_, x_m, x_logs))
+      return return_
+'''

@@ -33,6 +33,9 @@ def main(tst_stn):
   ###############################################################################
 
   model_dir = "./logs/base/"
+  model_dir = "./logs/liku/"
+  model_dir = "./logs/YJSM/"
+  # model_dir = "./logs/kor_phone/"
   hps = utils.get_hparams_from_dir(model_dir)
   model = models.FlowGenerator(
       len(symbols),
@@ -49,7 +52,9 @@ def main(tst_stn):
   ###############################################################################
 
   # tst_stn = " Glow TTS is really awesome ! " # Adding spaces at the beginning and the end of utterance improves quality
-  sequence = np.array(text_to_sequence(tst_stn, ['english_cleaners'], cmu_dict))[None, :]
+  # sequence = np.array(text_to_sequence(tst_stn, ['english_cleaners'], cmu_dict))[None, :]
+  sequence = np.array(text_to_sequence(tst_stn, ['korean_cleaners'], cmu_dict))[None, :]
+  
   print("".join([symbols[c] for c in sequence[0]]))
   x_tst = torch.autograd.Variable(torch.from_numpy(sequence)).cuda().long()
   x_tst_lengths = torch.tensor([x_tst.shape[1]]).cuda()
@@ -58,8 +63,19 @@ def main(tst_stn):
 
   with torch.no_grad():
     noise_scale = .667
+    # noise_scale = .5
+    # noise_scale = .333
+    # noise_scale = .111
+    # noise_scale = .0
+    # length_scale = 1.50
+    # length_scale = 1.25
     length_scale = 1.0
+    # length_scale = 0.75
+    # length_scale = 0.5
+    # length_scale = 2.0
+    # length_scale = 0.6
     (y_gen_tst, *r), attn_gen, *_ = model(x_tst, x_tst_lengths, gen=True, noise_scale=noise_scale, length_scale=length_scale)
+    
     try:
       audio = waveglow.infer(y_gen_tst.half(), sigma=.666)
     except:
@@ -69,7 +85,7 @@ def main(tst_stn):
   audio *= 2 ** 15
   audio = audio.astype(np.int16)
 
-  wavfile.write('infer.wav', hps.data.sampling_rate, audio)
+  wavfile.write(f'{tst_stn[:20]}.wav', hps.data.sampling_rate, audio)
 
 if __name__ == "__main__":
   main(sys.argv[1])  

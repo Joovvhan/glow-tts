@@ -97,4 +97,5 @@ def korean_cleaners(text):
   '''Pipeline for Korean text. Split Korean into Jamo syllables.'''
   text = g2p(text)
   text = jamotools.split_syllables(text, jamo_type="JAMO") 
+  text = text.replace('@', '')
   return text

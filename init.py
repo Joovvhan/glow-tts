@@ -51,7 +51,7 @@ def main():
     _ = generator(x, x_lengths, y, y_lengths, gen=False)
     break
 
-  utils.save_checkpoint(generator, optimizer_g, hps.train.learning_rate, 0, os.path.join(hps.model_dir, "ddi_G.pth"))
+  # utils.save_checkpoint(generator, optimizer_g, hps.train.learning_rate, 0, os.path.join(hps.model_dir, "ddi_G.pth"))
 
                             
 if __name__ == "__main__":
