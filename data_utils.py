@@ -8,6 +8,7 @@ from utils import load_wav_to_torch, load_filepaths_and_text
 from text import text_to_sequence, cmudict
 
 import librosa
+import os
 
 
 class TextMelLoader(torch.utils.data.Dataset):
@@ -21,7 +22,8 @@ class TextMelLoader(torch.utils.data.Dataset):
         self.text_cleaners = hparams.text_cleaners
         self.max_wav_value = hparams.max_wav_value
         self.sampling_rate = hparams.sampling_rate
-        self.load_mel_from_disk = hparams.load_mel_from_disk
+        # self.load_mel_from_disk = hparams.load_mel_from_disk
+        self.load_mel_from_disk = True
         self.add_noise = hparams.add_noise
         self.add_space = hparams.add_space
         if getattr(hparams, "cmudict_path", None) is not None:
@@ -50,66 +52,73 @@ class TextMelLoader(torch.utils.data.Dataset):
         return (text, mel)
 
     def get_mel(self, filename):
-        if not self.load_mel_from_disk:
-            audio, sampling_rate = load_wav_to_torch(filename)
-            
-            if sampling_rate != self.stft.sampling_rate:
-                # print(sampling_rate, self.stft.sampling_rate)
-                raise ValueError("{} {} SR doesn't match target {} SR".format(
-                    sampling_rate, self.stft.sampling_rate))
-            if self.add_noise:
-                audio = audio + torch.rand_like(audio)
-            audio_norm = audio / self.max_wav_value
-            # audio_norm = audio_norm.unsqueeze(0)
+        if self.load_mel_from_disk:
+            # melspec = torch.from_numpy(np.load(filename))
+            try:
+                melspec = torch.from_numpy(np.load(filename + '.npy'))
+                assert melspec.size(0) == self.stft.n_mel_channels, (
+                    'Mel dimension mismatch: given {}, expected {}'.format(
+                        melspec.size(0), self.stft.n_mel_channels))
 
-            # Implement TensorFlowTTS style audio normalization
-            audio_norm = audio_norm.numpy()
+                return melspec
+            except:
+                print(filename + '.npy' + ' not found ... ')
 
-            # Implement TensorFlowTTS style trim
-            audio_norm, _ = librosa.effects.trim(
-                audio_norm,
-                top_db=30, # top_db=config["trim_threshold_in_db"],
-                frame_length=2048, # frame_length=config["trim_frame_size"],
-                hop_length=512, # hop_length=config["trim_hop_size"],
-            )
+        audio, sampling_rate = load_wav_to_torch(filename)
+        
+        if sampling_rate != self.stft.sampling_rate:
+            # print(sampling_rate, self.stft.sampling_rate)
+            raise ValueError("{} {} SR doesn't match target {} SR".format(
+                sampling_rate, self.stft.sampling_rate))
+        if self.add_noise:
+            audio = audio + torch.rand_like(audio)
+        audio_norm = audio / self.max_wav_value
+        # audio_norm = audio_norm.unsqueeze(0)
 
-            # melspec = self.stft.mel_spectrogram(audio_norm)
-            # melspec = torch.squeeze(melspec, 0)
+        # Implement TensorFlowTTS style audio normalization
+        audio_norm = audio_norm.numpy()
 
-            # Implement TensorFlowTTS style mel-spectrogram
-            D = librosa.stft(
-                audio_norm,
-                n_fft=self.hparams.filter_length, # n_fft=config["fft_size"],
-                hop_length=self.hparams.hop_length, # hop_length=hop_size,
-                win_length=self.hparams.filter_length, # win_length=config["win_length"],
-                window="hann", # window=config["window"],
-                pad_mode="reflect",
-            )
-            S, _ = librosa.magphase(D)  # (#bins, #frames)
+        # Implement TensorFlowTTS style trim
+        audio_norm, _ = librosa.effects.trim(
+            audio_norm,
+            top_db=30, # top_db=config["trim_threshold_in_db"],
+            frame_length=2048, # frame_length=config["trim_frame_size"],
+            hop_length=512, # hop_length=config["trim_hop_size"],
+        )
 
-            # get mel basis
-            fmin = 0 if self.hparams.mel_fmin is None else self.hparams.mel_fmin
-            fmax = self.hparams.sampling_rate // 2 if self.hparams.mel_fmax is None else self.hparams.mel_fmax
-            mel_basis = librosa.filters.mel(
-                sr=self.hparams.sampling_rate,
-                n_fft=self.hparams.filter_length,
-                n_mels=self.hparams.n_mel_channels,
-                fmin=fmin,
-                fmax=fmax,
-            )
-            # mel = np.log10(np.maximum(np.dot(mel_basis, S), 1e-10)).T  # (#frames, #bins)
-            melspec = np.log10(np.maximum(np.dot(mel_basis, S), 1e-10))  # (#bins, #frames)
+        # melspec = self.stft.mel_spectrogram(audio_norm)
+        # melspec = torch.squeeze(melspec, 0)
 
-            # Implement TensorFlowTTS style mel-spectrogram normalization
-            melspec = (melspec - self.stat_mean) / self.stat_std
+        # Implement TensorFlowTTS style mel-spectrogram
+        D = librosa.stft(
+            audio_norm,
+            n_fft=self.hparams.filter_length, # n_fft=config["fft_size"],
+            hop_length=self.hparams.hop_length, # hop_length=hop_size,
+            win_length=self.hparams.filter_length, # win_length=config["win_length"],
+            window="hann", # window=config["window"],
+            pad_mode="reflect",
+        )
+        S, _ = librosa.magphase(D)  # (#bins, #frames)
 
-            melspec = torch.tensor(melspec)
+        # get mel basis
+        fmin = 0 if self.hparams.mel_fmin is None else self.hparams.mel_fmin
+        fmax = self.hparams.sampling_rate // 2 if self.hparams.mel_fmax is None else self.hparams.mel_fmax
+        mel_basis = librosa.filters.mel(
+            sr=self.hparams.sampling_rate,
+            n_fft=self.hparams.filter_length,
+            n_mels=self.hparams.n_mel_channels,
+            fmin=fmin,
+            fmax=fmax,
+        )
+        # mel = np.log10(np.maximum(np.dot(mel_basis, S), 1e-10)).T  # (#frames, #bins)
+        melspec = np.log10(np.maximum(np.dot(mel_basis, S), 1e-10))  # (#bins, #frames)
 
-        else:
-            melspec = torch.from_numpy(np.load(filename))
-            assert melspec.size(0) == self.stft.n_mel_channels, (
-                'Mel dimension mismatch: given {}, expected {}'.format(
-                    melspec.size(0), self.stft.n_mel_channels))
+        # Implement TensorFlowTTS style mel-spectrogram normalization
+        melspec = (melspec - self.stat_mean) / self.stat_std
+        if not os.path.isfile(filename + '.npy'):
+            np.save(filename + '.npy', melspec)
+
+        melspec = torch.tensor(melspec)
 
         return melspec
 
