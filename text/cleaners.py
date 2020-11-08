@@ -93,9 +93,21 @@ def english_cleaners(text):
   text = collapse_whitespace(text)
   return text
 
+g2p_dict = dict()
+
 def korean_cleaners(text):
   '''Pipeline for Korean text. Split Korean into Jamo syllables.'''
-  # text = g2p(text)
+  global g2p_dict
+
+  try:
+    phoneme = g2p_dict[text]
+  except:
+    phoneme = g2p(text)
+    g2p_dict[text] = phoneme
+  finally:
+    text = phoneme
+
+  text = g2p(text)
   text = jamotools.split_syllables(text, jamo_type="JAMO") 
   text = text.replace('@', '')
   return text

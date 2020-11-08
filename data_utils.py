@@ -79,16 +79,17 @@ class TextMelLoader(torch.utils.data.Dataset):
         audio_norm = audio_norm.numpy()
 
         # Implement TensorFlowTTS style trim
+        '''
         audio_norm, _ = librosa.effects.trim(
             audio_norm,
             top_db=30, # top_db=config["trim_threshold_in_db"],
             frame_length=2048, # frame_length=config["trim_frame_size"],
             hop_length=512, # hop_length=config["trim_hop_size"],
         )
-
-        # melspec = self.stft.mel_spectrogram(audio_norm)
-        # melspec = torch.squeeze(melspec, 0)
-
+        '''
+        melspec = self.stft.mel_spectrogram(audio_norm)
+        melspec = torch.squeeze(melspec, 0)
+        '''
         # Implement TensorFlowTTS style mel-spectrogram
         D = librosa.stft(
             audio_norm,
@@ -119,6 +120,7 @@ class TextMelLoader(torch.utils.data.Dataset):
             np.save(filename + '.npy', melspec)
 
         melspec = torch.tensor(melspec)
+        '''
 
         return melspec
 
