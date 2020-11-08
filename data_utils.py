@@ -22,8 +22,8 @@ class TextMelLoader(torch.utils.data.Dataset):
         self.text_cleaners = hparams.text_cleaners
         self.max_wav_value = hparams.max_wav_value
         self.sampling_rate = hparams.sampling_rate
-        # self.load_mel_from_disk = hparams.load_mel_from_disk
-        self.load_mel_from_disk = True
+        self.load_mel_from_disk = hparams.load_mel_from_disk
+        # self.load_mel_from_disk = True
         self.add_noise = hparams.add_noise
         self.add_space = hparams.add_space
         if getattr(hparams, "cmudict_path", None) is not None:
