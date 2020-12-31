@@ -17,9 +17,12 @@ logger = logging
 def load_checkpoint(checkpoint_path, model, optimizer=None):
   assert os.path.isfile(checkpoint_path)
   checkpoint_dict = torch.load(checkpoint_path, map_location='cpu')
-  iteration = checkpoint_dict['iteration']
-  learning_rate = checkpoint_dict['learning_rate']
-  if optimizer is not None:
+  iteration = 1
+  if 'iteration' in checkpoint_dict.keys():
+    iteration = checkpoint_dict['iteration']
+  if 'learning_rate' in checkpoint_dict.keys():
+    learning_rate = checkpoint_dict['learning_rate']
+  if optimizer is not None and 'optimizer' in checkpoint_dict.keys():
     optimizer.load_state_dict(checkpoint_dict['optimizer'])
   saved_state_dict = checkpoint_dict['model']
   if hasattr(model, 'module'):
@@ -176,6 +179,15 @@ def get_hparams_from_dir(model_dir):
 
   hparams =HParams(**config)
   hparams.model_dir = model_dir
+  return hparams
+
+
+def get_hparams_from_file(config_path):
+  with open(config_path, "r") as f:
+    data = f.read()
+  config = json.loads(data)
+
+  hparams =HParams(**config)
   return hparams
 
 

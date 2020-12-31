@@ -64,13 +64,15 @@ def train_and_eval(rank, n_gpus, hps):
         drop_last=True, collate_fn=collate_fn)
 
   generator = models.FlowGenerator(
-      n_vocab=len(symbols), 
+      n_vocab=len(symbols) + getattr(hps.data, "add_blank", False), 
       out_channels=hps.data.n_mel_channels, 
       **hps.model).cuda(rank)
   optimizer_g = commons.Adam(generator.parameters(), scheduler=hps.train.scheduler, dim_model=hps.model.hidden_channels, warmup_steps=hps.train.warmup_steps, lr=hps.train.learning_rate, betas=hps.train.betas, eps=hps.train.eps)
   if hps.train.fp16_run:
     generator, optimizer_g._optim = amp.initialize(generator, optimizer_g._optim, opt_level="O1")
   generator = DDP(generator)
+  epoch_str = 1
+  global_step = 0
   try:
     _, _, _, epoch_str = utils.load_checkpoint(utils.latest_checkpoint_path(hps.model_dir, "G_*.pth"), generator, optimizer_g)
     epoch_str += 1
@@ -80,9 +82,6 @@ def train_and_eval(rank, n_gpus, hps):
   except:
     if hps.train.ddi and os.path.isfile(os.path.join(hps.model_dir, "ddi_G.pth")):
       _ = utils.load_checkpoint(os.path.join(hps.model_dir, "ddi_G.pth"), generator, optimizer_g)
-    epoch_str = 1
-    global_step = 0
-
   
   for epoch in range(epoch_str, hps.train.epochs + 1):
     if rank==0:
@@ -105,9 +104,9 @@ def train(rank, epoch, hps, generator, optimizer_g, train_loader, logger, writer
     # Train Generator
     optimizer_g.zero_grad()
     
-    (z, y_m, y_logs, logdet), attn, logw, logw_, x_m, x_logs = generator(x, x_lengths, y, y_lengths, gen=False)
-    l_mle = 0.5 * math.log(2 * math.pi) + (torch.sum(y_logs) + 0.5 * torch.sum(torch.exp(-2 * y_logs) * (z - y_m)**2) - torch.sum(logdet)) / (torch.sum(y_lengths // hps.model.n_sqz) * hps.model.n_sqz * hps.data.n_mel_channels) 
-    l_length = torch.sum((logw - logw_)**2) / torch.sum(x_lengths)
+    (z, z_m, z_logs, logdet, z_mask), (x_m, x_logs, x_mask), (attn, logw, logw_) = generator(x, x_lengths, y, y_lengths, gen=False)
+    l_mle = commons.mle_loss(z, z_m, z_logs, logdet, z_mask)
+    l_length = commons.duration_loss(logw, logw_, x_lengths)
 
     loss_gs = [l_mle, l_length]
     loss_g = sum(loss_gs)
@@ -157,9 +156,10 @@ def evaluate(rank, epoch, hps, generator, optimizer_g, val_loader, logger, write
         y, y_lengths = y.cuda(rank, non_blocking=True), y_lengths.cuda(rank, non_blocking=True)
 
         
-        (z, y_m, y_logs, logdet), attn, logw, logw_, x_m, x_logs = generator(x, x_lengths, y, y_lengths, gen=False)
-        l_mle = 0.5 * math.log(2 * math.pi) + (torch.sum(y_logs) + 0.5 * torch.sum(torch.exp(-2 * y_logs) * (z - y_m)**2) - torch.sum(logdet)) / (torch.sum(y_lengths // hps.model.n_sqz) * hps.model.n_sqz * hps.data.n_mel_channels)
-        l_length = torch.sum((logw - logw_)**2) / torch.sum(x_lengths)
+        (z, z_m, z_logs, logdet, z_mask), (x_m, x_logs, x_mask), (attn, logw, logw_) = generator(x, x_lengths, y, y_lengths, gen=False)
+        l_mle = commons.mle_loss(z, z_m, z_logs, logdet, z_mask)
+        l_length = commons.duration_loss(logw, logw_, x_lengths)
+
         loss_gs = [l_mle, l_length]
         loss_g = sum(loss_gs)
 
