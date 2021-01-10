@@ -24,8 +24,6 @@ def main(tst_stn):
 
   # load waveglow
   waveglow_path = './waveglow/waveglow_256channels_universal_v5.pt'
-  # waveglow_path = './waveglow/waveglow_54000'
-  # waveglow_path = './waveglow/waveglow_114000' 
   waveglow = torch.load(waveglow_path)['model']
   waveglow = waveglow.remove_weightnorm(waveglow)
   _ = waveglow.cuda().eval()
@@ -35,17 +33,7 @@ def main(tst_stn):
   ###############################################################################
 
   model_dir = "./logs/base/"
-  model_dir = "./logs/liku/"
-  # model_dir = "./logs/YJSM/"
-  # model_dir = "./logs/kor_phone/"
-  # model_dir = "./logs/sistershow-g2pk/"
-  model_dir = "./logs/sistershow+/"
-  # model_dir = "./logs/phone_no_mod"
-  # model_dir = "./logs/grapheme"
-  # model_dir = "./logs/old_liku/"
-  # model_dir = "./logs/new_liku/"
-  model_dir = "./logs/new_liku_sum"
-
+  model_dir = "./logs/kor_phone/"
   hps = utils.get_hparams_from_dir(model_dir)
   model = models.FlowGenerator(
       len(symbols),
@@ -57,8 +45,7 @@ def main(tst_stn):
   model.decoder.store_inverse() # do not calcuate jacobians for fast decoding
   _ = model.eval()
 
-  # cmu_dict = cmudict.CMUDict(hps.data.cmudict_path)
-  cmu_dict = None
+  cmu_dict = cmudict.CMUDict(hps.data.cmudict_path)
 
   ###############################################################################
 
@@ -73,32 +60,36 @@ def main(tst_stn):
   ###############################################################################
 
   with torch.no_grad():
-    noise_scale = .333
+    noise_scale = .667
+    noise_scales = [0.1, 0.333, 0.667, 1.0]
     # noise_scale = .5
     # noise_scale = .333
-    noise_scale = .111
+    # noise_scale = .111
     # noise_scale = .0
     # length_scale = 1.50
     # length_scale = 1.25
-    # length_scale = 1.2
-    length_scale = 1.4
     length_scale = 1.0
     # length_scale = 0.75
     # length_scale = 0.5
     # length_scale = 2.0
     # length_scale = 0.6
-    (y_gen_tst, *r), attn_gen, *_ = model(x_tst, x_tst_lengths, gen=True, noise_scale=noise_scale, length_scale=length_scale)
+    # (y_gen_tst, *r), attn_gen, *_ = model(x_tst, x_tst_lengths, gen=True, noise_scale=noise_scale, length_scale=length_scale)
+    results = model._forward(x_tst, x_tst_lengths, gen=True, noise_scales=noise_scales, length_scale=length_scale)
     
+  for i, result in enumerate(results):  
+
+    (y_gen_tst, *r), attn_gen, *_ = result
+
     try:
       audio = waveglow.infer(y_gen_tst.half(), sigma=.666)
     except:
       audio = waveglow.infer(y_gen_tst, sigma=.666)
 
-  audio = audio.cpu().numpy()[0]
-  audio *= 2 ** 15
-  audio = audio.astype(np.int16)
+    audio = audio.cpu().numpy()[0]
+    audio *= 2 ** 15
+    audio = audio.astype(np.int16)
 
-  wavfile.write(f'{tst_stn[:20]}.wav', hps.data.sampling_rate, audio)
+    wavfile.write(f'{tst_stn[:20]}_{noise_scales[i]}.wav', hps.data.sampling_rate, audio)
 
 if __name__ == "__main__":
   main(sys.argv[1])  

@@ -20,12 +20,12 @@ import modules
 import models
 import utils
 
-def main(tst_stn):
+def main(tst_stn, model_dir, save_name):
 
   # load waveglow
   waveglow_path = './waveglow/waveglow_256channels_universal_v5.pt'
-  # waveglow_path = './waveglow/waveglow_54000'
-  # waveglow_path = './waveglow/waveglow_114000' 
+  # waveglow_path = './waveglow/waveglow_114000'
+  # waveglow_path = './waveglow/waveglow_248000'
   waveglow = torch.load(waveglow_path)['model']
   waveglow = waveglow.remove_weightnorm(waveglow)
   _ = waveglow.cuda().eval()
@@ -34,18 +34,8 @@ def main(tst_stn):
 
   ###############################################################################
 
-  model_dir = "./logs/base/"
-  model_dir = "./logs/liku/"
-  # model_dir = "./logs/YJSM/"
-  # model_dir = "./logs/kor_phone/"
-  # model_dir = "./logs/sistershow-g2pk/"
-  model_dir = "./logs/sistershow+/"
-  # model_dir = "./logs/phone_no_mod"
+  model_dir = model_dir
   # model_dir = "./logs/grapheme"
-  # model_dir = "./logs/old_liku/"
-  # model_dir = "./logs/new_liku/"
-  model_dir = "./logs/new_liku_sum"
-
   hps = utils.get_hparams_from_dir(model_dir)
   model = models.FlowGenerator(
       len(symbols),
@@ -65,6 +55,11 @@ def main(tst_stn):
   # tst_stn = " Glow TTS is really awesome ! " # Adding spaces at the beginning and the end of utterance improves quality
   # sequence = np.array(text_to_sequence(tst_stn, ['english_cleaners'], cmu_dict))[None, :]
   sequence = np.array(text_to_sequence(tst_stn, ['korean_cleaners'], cmu_dict))[None, :]
+
+  with open('g2p_result.txt', 'a') as f:
+    f.write("".join([symbols[c] for c in sequence[0]]))
+    f.write(" | " + save_name)
+    f.write("\n")
   
   print("".join([symbols[c] for c in sequence[0]]))
   x_tst = torch.autograd.Variable(torch.from_numpy(sequence)).cuda().long()
@@ -75,18 +70,8 @@ def main(tst_stn):
   with torch.no_grad():
     noise_scale = .333
     # noise_scale = .5
-    # noise_scale = .333
-    noise_scale = .111
-    # noise_scale = .0
-    # length_scale = 1.50
-    # length_scale = 1.25
-    # length_scale = 1.2
-    length_scale = 1.4
     length_scale = 1.0
     # length_scale = 0.75
-    # length_scale = 0.5
-    # length_scale = 2.0
-    # length_scale = 0.6
     (y_gen_tst, *r), attn_gen, *_ = model(x_tst, x_tst_lengths, gen=True, noise_scale=noise_scale, length_scale=length_scale)
     
     try:
@@ -98,7 +83,17 @@ def main(tst_stn):
   audio *= 2 ** 15
   audio = audio.astype(np.int16)
 
-  wavfile.write(f'{tst_stn[:20]}.wav', hps.data.sampling_rate, audio)
+  wavfile.write(f'{save_name}', hps.data.sampling_rate, audio)
 
 if __name__ == "__main__":
-  main(sys.argv[1])  
+
+  model_path = sys.argv[1]
+  script_file = sys.argv[2]
+
+  with open('g2p_result.txt', 'w') as f:
+    f.write('')
+
+  with open(script_file, 'r') as file:
+    for line in file:
+      sentence, save_name = line.split('|')
+      main(sentence, model_path, save_name.strip())  

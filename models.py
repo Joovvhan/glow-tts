@@ -325,8 +325,8 @@ class FlowGenerator(nn.Module):
 
   def store_inverse(self):
     self.decoder.store_inverse()
-'''
-  def _forward(self, x, x_lengths, y=None, y_lengths=None, g=None, gen=False, noise_scales=[1]., length_scale=1.):
+
+  def _forward(self, x, x_lengths, y=None, y_lengths=None, g=None, gen=False, noise_scales=[1.], length_scale=1.):
 
     x_m, x_logs, logw, x_mask = self.encoder(x, x_lengths, g=g)
 
@@ -353,4 +353,3 @@ class FlowGenerator(nn.Module):
         y, logdet = self.decoder(z, y_mask, g=g, reverse=True)
         return_.append(((y, y_m, y_logs, logdet), attn, logw, logw_, x_m, x_logs))
       return return_
-'''

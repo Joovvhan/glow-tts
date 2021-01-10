@@ -31,8 +31,10 @@ for unicode in range(0x11A8, 0x11C3):
 '''
 
 # Rule of Seven Jongseong
+# '''
 for unicode in (0x11a8, 0x11ab, 0x11ae, 0x11af, 0x11b7, 0x11b8, 0x11bc):
     _letters_k += chr(unicode)
+# '''
 
 symbols = [_pad] + list(_special) + list(_punctuation) + list(_letters_k)
 
